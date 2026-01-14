@@ -90,3 +90,94 @@ python burp_launcher.py -h
 ---
 
 **Copyright © 2026 [mootoo11](https://github.com/mootoo11)**
+
+
+# Exe to Burp
+
+**اعتراض حركة البيانات (Traffic) من أي ملف تنفيذي (.exe) باستخدام Burp Suite.**
+تتيح لك هذه الأداة توجيه حركة الشبكة بسهولة من ملفات Windows التنفيذية عبر بروكسي (مثل Burp Suite)، مع تخطي حماية "تثبيت الشهادة" (SSL Pinning) تلقائياً في بيئات Python و Node.js.
+
+**تم التطوير بواسطة:** [mootoo11](https://github.com/mootoo11)
+
+---
+
+## 1. المتطلبات والإعداد
+
+قبل تشغيل الأداة، تحتاج إلى تهيئة البيئة والشهادات اللازمة.
+
+### المتطلبات الأساسية
+* **Python 3.x**: تأكد من تثبيته وإضافته إلى مسار النظام (PATH).
+* **Burp Suite**: أو أي أداة بروكسي أخرى (مثل Fiddler أو Charles).
+
+### التثبيت
+1.  **تثبيت المكتبات اللازمة**:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+2.  **توليد الشهادات (للمرة الأولى فقط)**:
+    تحتاج إلى إنشاء سلطة شهادات (Root CA) مخصصة لتثق بها الملفات التنفيذية المستهدفة.
+    ```powershell
+    python gen_cert_v2.py
+    python make_p12.py
+    ```
+    * سيؤدي هذا إلى إنشاء الملف `server.crt` (شهادة مقيدة) وملف `burp_custom_ca.p12`.
+
+3.  **استيراد الشهادة إلى Burp Suite**:
+    * افتح برنامج **Burp Suite**.
+    * اذهب إلى **Proxy/Settings** -> ثم **Proxy Listeners** -> واختر **Import/export CA certificate**.
+    * اختر **Import** -> ثم **Certificate and private key from PKCS#12 keystore**.
+    * حدد الملف: **`burp_custom_ca.p12`**.
+    * أدخل كلمة المرور: **`password`**.
+
+---
+
+## 2. الاستخدام
+
+يمكنك تشغيل أي ملف `.exe` وإجبار اتصالاته على المرور عبر البروكسي الخاص بك.
+
+### الأمر الأساسي
+```powershell
+python burp_launcher.py -t <path_to_exe>
+أمثلة
+تشغيل برنامج مستهدف:
+
+PowerShell
+
+python burp_launcher.py -t "C:\Path\To\program.exe"
+التشغيل باستخدام بروكسي مخصص (غير Burp):
+
+PowerShell
+
+python burp_launcher.py -t game.exe -p [http://127.0.0.1:8888](http://127.0.0.1:8888)
+عرض قائمة المساعدة:
+
+PowerShell
+
+python burp_launcher.py -h
+3. استكشاف الأخطاء وإصلاحها (Troubleshooting)
+خطأ "SSL Certificate Verify Failed"
+السبب: التطبيق لا يثق بالشهادة المستخدمة.
+
+الحل: تأكد من أنك قمت بتشغيل gen_cert_v2.py واستوردت ملف .p12 الناتج داخل Burp Suite بشكل صحيح. شهادة Burp الافتراضية (cacert.der) غالباً ما تفشل مع إصدارات Python الحديثة، لذلك يجب استخدام الشهادة المخصصة التي تم توليدها بهذه الأداة.
+
+خطأ "Target file not found"
+السبب: قمت بإدخال مسار خاطئ للملف التنفيذي .exe.
+
+الحل: استخدم علامات التنصيص حول المسار إذا كان يحتوي على مسافات، مثال: "C:\My Files\app.exe".
+
+حركة البيانات لا تظهر في Burp
+السبب: التطبيق قد يتجاهل إعدادات البروكسي الخاصة بالنظام (حالة نادرة).
+
+الحل: تقوم هذه الأداة بضبط متغيرات البيئة HTTP_PROXY و HTTPS_PROXY. إذا كان التطبيق يتجاهل هذه المتغيرات عمداً، فلا يمكن لهذه الأداة اعتراضه دون هندسة عكسية إضافية (مثل استخدام برامج مثل Proxifier).
+
+4. كيف تعمل الأداة
+حقن البيئة (Environment Injection): يقوم السكربت بضبط متغيرات البيئة HTTP_PROXY و HTTPS_PROXY للعملية المستهدفة، مما يخبر مكتبات الشبكات القياسية باستخدام البروكسي الخاص بك.
+
+ثقة SSL: تقوم الأداة بتوجيه المتغيرات REQUESTS_CA_BUNDLE و SSL_CERT_FILE و NODE_EXTRA_CA_CERTS لاستخدام شهادتنا المخصصة server.crt.
+
+شهادة صارمة (Strict CA): الشهادة التي يتم توليدها بواسطة هذه الأداة (gen_cert_v2.py) تتضمن حقولاً محددة (مثل Key Usage و Subject Key Identifier) تفتقر إليها الشهادات البسيطة، مما يسمح لها بتجاوز فحوصات SSL الصارمة الموجودة في المكتبات الحديثة مثل urllib3 الإصدار 2.0+ وبيئة Node.js.
+
+حقوق النشر © 2026 mootoo11
+
+
